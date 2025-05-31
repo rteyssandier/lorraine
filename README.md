@@ -1,20 +1,14 @@
-### THIS IS A WORK IN PROGRESS
-
-Subject to change.
-
-I'm having some issue publishing the library due to Room. Opened an issue on issuetracker, waiting. Still trying to fix it on my side.
-
 # Lorraine
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.dottttt.lorraine/lorraine/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.dottttt.lorraine/lorraine)
 
 Lorraine is a work management framework for tasks.
 
-### Get started
+### Setup
 
 First add the dependency to your project:
 
-Lastest vesion: https://mvnrepository.com/artifact/io.github.dottttt.lorraine/lorraine
+Lastest version: https://mvnrepository.com/artifact/io.github.dottttt.lorraine/lorraine
 
 ```toml
 [versions]
@@ -26,17 +20,37 @@ lorraine = { module = "io.github.dottttt.lorraine:lorraine", version.ref = "lorr
 
 ## Using it
 
-#### Initialization
+#### Getting started
 
 Initialize Lorraine with workers.
 
+> Still not satisfied with the current initialization workflow. Any input are welcome.
+
+Shared
 ```kotlin
 const val GET_WORKER = "GET_WORKER"
 
-lorraine {
-    work(GET_WORKER) { GetWorker() }
-    ...
+fun init(context: LorraineContext) {
+    val lorraine = startLorraine(context) {
+        work(GET_WORKER) { GetWorker() }
+        ...
+    }
 }
+```
+
+Android
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        init(createLorraineContext(this))
+    }
+}
+```
+
+iOS
+```kotlin
+init(createLorraineContext())
 ```
 
 Create workers by extending `WorkLorraine`
@@ -55,7 +69,7 @@ class GetWorker : WorkLorraine() {
 Launch your worker
 
 ```kotlin
-Lorraine.enqueue(
+lorraine.enqueue(
     uniqueId = "UNIQUE_ID",
     type = ExistingLorrainePolicy.APPEND,
     request = lorraineRequest {
@@ -69,7 +83,16 @@ Lorraine.enqueue(
 
 ## Reporting Issues / Support
 
+Looking for application willing to use it, and have some feedback to add further improvement.
+
 Report any issue on this GitHub repository.
+
+## To Do
+
+- [ ] Add support for PeriodicWork 
+- [ ] Add support for JVM
+- [ ] Add support for WASM
+- [ ] Review BackgroundTask in iOS, to maybe use it
 
 ## Inspirations
 
