@@ -12,9 +12,9 @@ import androidx.work.await
 import androidx.work.workDataOf
 import io.dot.lorraine.db.entity.WorkerEntity
 import io.dot.lorraine.db.entity.toEntity
+import io.dot.lorraine.db.entity.toInfo
 import io.dot.lorraine.dsl.LorraineOperation
 import io.dot.lorraine.dsl.LorraineRequest
-import io.dot.lorraine.initializer.LorraineInitializer
 import io.dot.lorraine.mapping.asLorraineData
 import io.dot.lorraine.mapping.asLorraineInfoState
 import io.dot.lorraine.mapping.asWorkManagerConstraints
@@ -22,13 +22,13 @@ import io.dot.lorraine.mapping.asWorkManagerData
 import io.dot.lorraine.mapping.asWorkManagerExistingPolicy
 import io.dot.lorraine.mapping.asWorkManagerPolicy
 import io.dot.lorraine.models.ExistingLorrainePolicy
+import io.dot.lorraine.models.LorraineApplication
 import io.dot.lorraine.models.LorraineInfo
+import io.dot.lorraine.models.workerDao
 import io.dot.lorraine.work.LorraineWorker
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlin.coroutines.CoroutineContext
 import kotlin.time.toJavaDuration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -36,22 +36,19 @@ import kotlin.uuid.toJavaUuid
 import kotlin.uuid.toKotlinUuid
 
 internal class AndroidPlatform(
-    private val workManager: WorkManager
-) : Platform, CoroutineScope {
+    private val workManager: WorkManager,
+    private val application: LorraineApplication
+) : Platform {
+
     override val name: String = "android"
 
-    private val job = SupervisorJob()
-    override val coroutineContext: CoroutineContext
-        get() = Dispatchers.IO + job
-
-    override suspend fun initialized() {
-        launch {
-            val dao = Lorraine.dao
-
+    init {
+        application.scope.launch {
             workManager.getWorkInfosFlow(WorkQuery.fromStates(WorkInfo.State.entries))
                 .collect { infos ->
                     infos.forEach { info ->
                         val uuid = info.id.toKotlinUuid()
+                        val dao = application.workerDao
                         val worker = dao.getWorker(uuidString = uuid.toHexString())
                             ?: return@forEach
 
@@ -73,24 +70,25 @@ internal class AndroidPlatform(
     ) {
         val workManagerWorker = lorraineRequest.toWorkManagerWorker()
 
-        Lorraine.dao.insert(
-            WorkerEntity(
-                uuid = workManagerWorker.id.toKotlinUuid().toString(),
-                queueId = queueId,
-                identifier = lorraineRequest.identifier,
-                state = LorraineInfo.State.ENQUEUED,
-                tags = lorraineRequest.tags,
-                inputData = lorraineRequest.inputData,
-                outputData = null,
-                workerDependencies = emptySet(),
-                constraints = lorraineRequest.constraints.toEntity()
+        application.workerDao
+            .insert(
+                WorkerEntity(
+                    uuid = workManagerWorker.id.toKotlinUuid().toString(),
+                    queueId = queueId,
+                    identifier = lorraineRequest.identifier,
+                    state = LorraineInfo.State.ENQUEUED,
+                    tags = lorraineRequest.tags,
+                    inputData = lorraineRequest.inputData,
+                    outputData = null,
+                    workerDependencies = emptySet(),
+                    constraints = lorraineRequest.constraints.toEntity()
+                )
             )
-        )
 
         workManager.enqueueUniqueWork(
-            /* uniqueWorkName = */ queueId,
-            /* existingWorkPolicy = */ type.asWorkManagerExistingPolicy(),
-            /* work = */ workManagerWorker
+            uniqueWorkName = queueId,
+            existingWorkPolicy = type.asWorkManagerExistingPolicy(),
+            request = workManagerWorker
         )
     }
 
@@ -104,9 +102,9 @@ internal class AndroidPlatform(
         val firstWorkManagerWorker = firstOperation.request
             .toWorkManagerWorker()
         var workOperation = workManager.beginUniqueWork(
-            /* uniqueWorkName = */ queueId,
-            /* existingWorkPolicy = */ operation.existingPolicy.asWorkManagerExistingPolicy(),
-            /* work = */ firstWorkManagerWorker
+            uniqueWorkName = queueId,
+            existingWorkPolicy = operation.existingPolicy.asWorkManagerExistingPolicy(),
+            request = firstWorkManagerWorker
         )
 
         workOperation = operation.operations
@@ -115,36 +113,38 @@ internal class AndroidPlatform(
                 val workManagerWorker = operation.request
                     .toWorkManagerWorker()
 
-                Lorraine.dao.insert(
-                    WorkerEntity(
-                        uuid = workManagerWorker.id.toKotlinUuid().toString(),
-                        queueId = queueId,
-                        identifier = operation.request.identifier,
-                        state = LorraineInfo.State.ENQUEUED,
-                        tags = operation.request.tags,
-                        inputData = operation.request.inputData,
-                        outputData = null,
-                        workerDependencies = emptySet(),
-                        constraints = operation.request.constraints.toEntity()
+                application.workerDao
+                    .insert(
+                        WorkerEntity(
+                            uuid = workManagerWorker.id.toKotlinUuid().toString(),
+                            queueId = queueId,
+                            identifier = operation.request.identifier,
+                            state = LorraineInfo.State.ENQUEUED,
+                            tags = operation.request.tags,
+                            inputData = operation.request.inputData,
+                            outputData = null,
+                            workerDependencies = emptySet(),
+                            constraints = operation.request.constraints.toEntity()
+                        )
                     )
-                )
 
                 currentWorkOperation.then(workManagerWorker)
             }
 
-        Lorraine.dao.insert(
-            WorkerEntity(
-                uuid = firstWorkManagerWorker.id.toKotlinUuid().toString(),
-                queueId = queueId,
-                identifier = firstOperation.request.identifier,
-                state = LorraineInfo.State.ENQUEUED,
-                tags = firstOperation.request.tags,
-                inputData = firstOperation.request.inputData,
-                outputData = null,
-                workerDependencies = emptySet(),
-                constraints = firstOperation.request.constraints.toEntity()
+        application.workerDao
+            .insert(
+                WorkerEntity(
+                    uuid = firstWorkManagerWorker.id.toKotlinUuid().toString(),
+                    queueId = queueId,
+                    identifier = firstOperation.request.identifier,
+                    state = LorraineInfo.State.ENQUEUED,
+                    tags = firstOperation.request.tags,
+                    inputData = firstOperation.request.inputData,
+                    outputData = null,
+                    workerDependencies = emptySet(),
+                    constraints = firstOperation.request.constraints.toEntity()
+                )
             )
-        )
 
         workOperation.enqueue()
     }
@@ -163,10 +163,18 @@ internal class AndroidPlatform(
 
     override suspend fun cancelAllWork() {
         workManager.cancelAllWork().await()
+        application.workerDao
+            .delete(application.workerDao.getWorkers())
     }
 
     override suspend fun pruneWork() {
         workManager.pruneWork().await()
+    }
+
+    override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> {
+        return application.workerDao
+            .getWorkersAsFlow()
+            .map { list -> list.map { it.toInfo() } }
     }
 
     private fun LorraineRequest.toWorkManagerWorker(): OneTimeWorkRequest {
@@ -176,17 +184,18 @@ internal class AndroidPlatform(
             .apply {
                 if (backOffPolicy != null) {
                     setBackoffCriteria(
-                        backOffPolicy.policy.asWorkManagerPolicy(),
-                        backOffPolicy.duration.toJavaDuration()
+                        backoffPolicy = backOffPolicy.policy.asWorkManagerPolicy(),
+                        duration = backOffPolicy.duration.toJavaDuration()
                     )
                 }
             }
             .build()
     }
 
-}
+    companion object {
 
-/**
- * Stub because, it is initialized by [LorraineInitializer]
- */
-internal actual fun registerPlatform() {}
+        internal var application: LorraineApplication? = null
+
+    }
+
+}

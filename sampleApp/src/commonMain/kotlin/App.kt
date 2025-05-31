@@ -6,7 +6,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import io.dot.lorraine.dsl.lorraine
+import io.dot.lorraine.Lorraine
+import io.dot.lorraine.dsl.startLorraine
+import io.dot.lorraine.models.LorraineContext
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
@@ -29,17 +31,21 @@ const val PUT_WORKER = "PUT_WORKER"
 const val PATCH_WORKER = "PATCH_WORKER"
 const val DELETE_WORKER = "DELETE_WORKER"
 
-@Composable
-@Preview
-fun App() {
-    lorraine {
+ var lorraine: Lorraine? = null
+
+fun initLorraine(context: LorraineContext) {
+    lorraine = startLorraine(context) {
         work(GET_WORKER) { GetWorker() }
         work(POST_WORKER) { PostWorker() }
         work(PATCH_WORKER) { PatchWorker() }
         work(PUT_WORKER) { PutWorker() }
         work(DELETE_WORKER) { DeleteWorker() }
     }
+}
 
+@Composable
+@Preview
+fun App() {
     MaterialTheme {
         val viewModel = remember { TestViewModel() }
 

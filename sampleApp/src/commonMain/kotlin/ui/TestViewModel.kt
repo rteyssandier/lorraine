@@ -7,7 +7,6 @@ import POST_WORKER
 import PUT_WORKER
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.dot.lorraine.Lorraine
 import io.dot.lorraine.dsl.lorraineOperation
 import io.dot.lorraine.dsl.lorraineRequest
 import io.dot.lorraine.models.ExistingLorrainePolicy
@@ -19,13 +18,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lorraine
 
 class TestViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(TestUIState())
     val uiState = combine(
         _uiState.asStateFlow(),
-        Lorraine.listenLorrainesInfo()
+        lorraine!!.listenLorrainesInfo()
     ) { uiState, workers ->
         uiState.copy(
             info = workers
@@ -46,9 +46,9 @@ class TestViewModel : ViewModel() {
 
     private fun send(action: TestAction.Send) {
         viewModelScope.launch {
-            Lorraine.enqueue(
+            lorraine!!.enqueue(
                 queueId = "UNIQUE_ID",
-                type = ExistingLorrainePolicy.APPEND,
+                type = ExistingLorrainePolicy.APPEND_OR_REPLACE,
                 request = lorraineRequest {
                     constraints {
                         requiredNetwork = true
@@ -72,7 +72,7 @@ class TestViewModel : ViewModel() {
 
     private fun operation() {
         viewModelScope.launch {
-            Lorraine.enqueue(
+            lorraine!!.enqueue(
                 queueId = "UNIQUE_OPERATION_ID",
                 operation = lorraineOperation {
                     existingPolicy = ExistingLorrainePolicy.APPEND_OR_REPLACE
@@ -101,7 +101,8 @@ class TestViewModel : ViewModel() {
 
     private fun clear() {
         viewModelScope.launch {
-            Lorraine.cancelAllWork()
+            lorraine!!.cancelAllWork()
+            lorraine!!.pruneWork()
         }
     }
 

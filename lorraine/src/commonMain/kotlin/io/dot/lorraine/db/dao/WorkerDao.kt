@@ -30,6 +30,9 @@ internal interface WorkerDao {
     @Delete
     suspend fun delete(worker: WorkerEntity)
 
+    @Delete
+    suspend fun delete(workers: List<WorkerEntity>)
+
     @Query("SELECT * FROM worker WHERE uuid = (:uuidString)")
     suspend fun getWorker(uuidString: String): WorkerEntity?
 

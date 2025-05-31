@@ -7,6 +7,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.view.WindowCompat
+import initLorraine
+import io.dot.lorraine.dsl.createLorraineContext
 
 class MainActivity : ComponentActivity() {
 
@@ -17,6 +19,8 @@ class MainActivity : ComponentActivity() {
             window, window.decorView
         )
             .isAppearanceLightStatusBars = true
+
+        initLorraine(createLorraineContext(this))
 
         setContent {
             App()

@@ -6,7 +6,8 @@ import io.dot.lorraine.constraint.match
 import io.dot.lorraine.db.entity.WorkerEntity
 import io.dot.lorraine.db.entity.createWorkerEntity
 import io.dot.lorraine.db.entity.toDomain
-import io.dot.lorraine.db.getDatabaseBuilder
+import io.dot.lorraine.db.createDatabaseBuilder
+import io.dot.lorraine.db.dao.WorkerDao
 import io.dot.lorraine.dsl.LorraineOperation
 import io.dot.lorraine.dsl.LorraineRequest
 import io.dot.lorraine.models.ExistingLorrainePolicy
@@ -21,30 +22,35 @@ import platform.Foundation.NSOperationQueue
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-internal class IOSPlatform : Platform {
+internal class IOSPlatform(
+    private val workerDao: WorkerDao,
+    coroutineScope: CoroutineScope
+) : Platform {
     override val name: String = "ios"
 
     private val queues: MutableMap<String, NSOperationQueue> = mutableMapOf()
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    override suspend fun initialized() {
-        Lorraine.dao.getWorkers()
-            .groupBy(WorkerEntity::queueId)
-            .forEach { (queueId, workers) ->
-                val nsOperation = NSOperationQueue()
-                var previous: NSOperation? = null
+    init {
+        coroutineScope.launch {
+            workerDao.getWorkers()
+                .groupBy(WorkerEntity::queueId)
+                .forEach { (queueId, workers) ->
+                    val nsOperation = NSOperationQueue()
+                    var previous: NSOperation? = null
 
-                workers.map { LorraineWorker(Uuid.parse(it.uuid)) }
-                    .forEach { worker ->
-                        previous?.let { previous -> worker.addDependency(previous) }
-                        previous = worker
-                        nsOperation.addOperation(worker)
-                    }
+                    workers.map { LorraineWorker(Uuid.parse(it.uuid)) }
+                        .forEach { worker ->
+                            previous?.let { previous -> worker.addDependency(previous) }
+                            previous = worker
+                            nsOperation.addOperation(worker)
+                        }
 
-                queues.put(queueId, nsOperation)
-            }
+                    queues.put(queueId, nsOperation)
+                }
 
-        constraintChanged()
+            constraintChanged()
+        }
     }
 
     override suspend fun enqueue(
@@ -69,7 +75,6 @@ internal class IOSPlatform : Platform {
             .match(worker.constraints.toDomain())
     }
 
-    // TODO Add dependency between workers
     override suspend fun enqueue(
         queueId: String,
         operation: LorraineOperation
@@ -141,6 +146,7 @@ internal class IOSPlatform : Platform {
     }
 
     override suspend fun cancelWorkById(uuid: Uuid) {
+        val worker = Lorraine.dao.getWorker(uuid.toHexString())
         // TODO("Not yet implemented")
     }
 
@@ -173,6 +179,8 @@ internal class IOSPlatform : Platform {
 internal actual fun registerPlatform() {
     Lorraine.registerPlatform(
         platform = IOSPlatform(),
-        db = getDatabaseBuilder()
+        db = createDatabaseBuilder()
     )
 }
+
+internal fun createPlatform(): Platform = IOSPlatform()

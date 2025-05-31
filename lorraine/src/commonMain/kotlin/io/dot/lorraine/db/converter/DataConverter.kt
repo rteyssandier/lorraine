@@ -1,8 +1,7 @@
 package io.dot.lorraine.db.converter
 
+import androidx.room.ProvidedTypeConverter
 import androidx.room.TypeConverter
-import androidx.room.TypeConverters
-import io.dot.lorraine.Lorraine
 import io.dot.lorraine.db.entity.BooleanData
 import io.dot.lorraine.db.entity.DataEntity
 import io.dot.lorraine.db.entity.DoubleData
@@ -13,14 +12,16 @@ import io.dot.lorraine.db.entity.StringData
 import io.dot.lorraine.db.entity.UnknownData
 import io.dot.lorraine.work.LorraineData
 import io.dot.lorraine.work.workData
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
-@TypeConverters
-internal class DataConverter {
+@ProvidedTypeConverter
+internal class DataConverter(
+    private val json: Json
+) {
 
     @TypeConverter
     fun typeFromJson(value: String): LorraineData {
-        val list = Lorraine.json.decodeFromString<List<DataEntity>>(value)
+        val list = json.decodeFromString<List<DataEntity>>(value)
 
         return workData {
             list.forEach { entity ->
@@ -76,7 +77,7 @@ internal class DataConverter {
                 }
             }
 
-        return Lorraine.json.encodeToString(mapped)
+        return json.encodeToString(mapped)
     }
 
 }

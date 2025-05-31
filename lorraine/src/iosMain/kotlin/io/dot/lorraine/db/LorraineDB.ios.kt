@@ -10,7 +10,7 @@ import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
-internal fun getDatabaseBuilder(): RoomDatabase.Builder<LorraineDB> {
+internal fun createDatabaseBuilder(): RoomDatabase.Builder<LorraineDB> {
     val parent = NSFileManager.defaultManager()
         .URLForDirectory(NSDocumentDirectory, NSUserDomainMask, null, false, null)
     val dbFilePath =
