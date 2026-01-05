@@ -1,4 +1,4 @@
-rootProject.name = "Lorraine"
+rootProject.name = "Lorraine-Sample"
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
