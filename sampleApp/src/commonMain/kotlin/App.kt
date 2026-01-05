@@ -31,7 +31,7 @@ const val PUT_WORKER = "PUT_WORKER"
 const val PATCH_WORKER = "PATCH_WORKER"
 const val DELETE_WORKER = "DELETE_WORKER"
 
- var lorraine: Lorraine? = null
+var lorraine: Lorraine? = null
 
 fun initLorraine(context: LorraineContext) {
     lorraine = startLorraine(context) {
