@@ -1,6 +1,11 @@
 package io.dot.lorraine.constraint
 
 import io.dot.lorraine.dsl.LorraineConstraints
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import okio.Closeable
 import platform.Network.nw_path_get_status
 import platform.Network.nw_path_monitor_cancel
@@ -14,29 +19,34 @@ import platform.Network.nw_path_status_satisfied
 import platform.Network.nw_path_t
 import platform.darwin.dispatch_queue_create
 
-internal actual object ConnectivityCheck : ConstraintCheck {
-    private var hasInternet: Boolean = false
+internal class ConnectivityCheck(
+    scope: CoroutineScope,
+    onChange: () -> Unit
+) : ConstraintCheck {
 
     private val observer = AppleNetworkObserver()
+
+    private val _value = MutableStateFlow(false)
 
     init {
         observer.setListener(
             object : NetworkObserver.Listener {
                 override fun networkChanged(isOnline: Boolean) {
-                    hasInternet = isOnline
-                    if (isOnline) {
-//                        (Lorraine.platform as IOSPlatform).constraintChanged()
-                    }
+                    _value.update { isOnline }
                 }
             }
         )
+
+        scope.launch {
+            _value.onEach { println("ConnectivityCheck: $it") }.collect { onChange() }
+        }
     }
 
-    actual override suspend fun match(constraints: LorraineConstraints): Boolean {
+    override suspend fun match(constraints: LorraineConstraints): Boolean {
         if (!constraints.requireNetwork)
             return true
 
-        return hasInternet
+        return _value.value
     }
 
 }

@@ -12,10 +12,7 @@ class IosLorraineContext private constructor() : LorraineContext() {
     }
 
     override fun createPlatform(application: LorraineApplication): Platform {
-        return IOSPlatform(
-            workerDao = application.workerDao,
-            coroutineScope = application.scope
-        )
+        return IOSPlatform(application = application)
     }
 
     companion object {
