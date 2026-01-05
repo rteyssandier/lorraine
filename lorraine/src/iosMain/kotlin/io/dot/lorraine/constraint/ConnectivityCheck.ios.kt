@@ -1,7 +1,5 @@
 package io.dot.lorraine.constraint
 
-import io.dot.lorraine.IOSPlatform
-import io.dot.lorraine.Lorraine
 import io.dot.lorraine.dsl.LorraineConstraints
 import okio.Closeable
 import platform.Network.nw_path_get_status
@@ -27,7 +25,7 @@ internal actual object ConnectivityCheck : ConstraintCheck {
                 override fun networkChanged(isOnline: Boolean) {
                     hasInternet = isOnline
                     if (isOnline) {
-                        (Lorraine.platform as IOSPlatform).constraintChanged()
+//                        (Lorraine.platform as IOSPlatform).constraintChanged()
                     }
                 }
             }

@@ -16,6 +16,7 @@ import io.dot.lorraine.work.LorraineWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import platform.Foundation.NSOperation
 import platform.Foundation.NSOperationQueue
@@ -46,7 +47,7 @@ internal class IOSPlatform(
                             nsOperation.addOperation(worker)
                         }
 
-                    queues.put(queueId, nsOperation)
+                    queues[queueId] = nsOperation
                 }
 
             constraintChanged()
@@ -66,13 +67,13 @@ internal class IOSPlatform(
             request = lorraineRequest
         )
 
-        Lorraine.dao.insert(worker)
+        workerDao.insert(worker)
 
         queue.addOperation(LorraineWorker(uuid))
         queues[worker.queueId] = queue
 
-        queue.suspended = !Lorraine.constraintChecks
-            .match(worker.constraints.toDomain())
+//        queue.suspended = !Lorraine.constraintChecks
+//            .match(worker.constraints.toDomain())
     }
 
     override suspend fun enqueue(
@@ -103,10 +104,10 @@ internal class IOSPlatform(
                 queue.addOperation(worker)
             }
 
-        Lorraine.dao.insert(workers)
+        workerDao.insert(workers)
 
-        queue.suspended = !Lorraine.constraintChecks
-            .match(workers.first().constraints.toDomain())
+//        queue.suspended = !Lorraine.constraintChecks
+//            .match(workers.first().constraints.toDomain())
     }
 
     internal fun suspend(uniqueId: String, suspended: Boolean) {
@@ -117,7 +118,7 @@ internal class IOSPlatform(
 
     internal fun constraintChanged() {
         scope.launch {
-            val workers = Lorraine.dao.getWorkers()
+            val workers = workerDao.getWorkers()
 
             workers.filter {
                 when (it.state) {
@@ -136,17 +137,17 @@ internal class IOSPlatform(
                         return@forEach
                     }
 
-                    if (Lorraine.constraintChecks
-                            .match(worker.constraints.toDomain())
-                    ) {
-                        (Lorraine.platform as IOSPlatform).suspend(worker.queueId, false)
-                    }
+//                    if (Lorraine.constraintChecks
+//                            .match(worker.constraints.toDomain())
+//                    ) {
+                    suspend(worker.queueId, false)
+//                    }
                 }
         }
     }
 
     override suspend fun cancelWorkById(uuid: Uuid) {
-        val worker = Lorraine.dao.getWorker(uuid.toHexString())
+        workerDao.getWorker(uuid.toHexString())
         // TODO("Not yet implemented")
     }
 
@@ -167,6 +168,10 @@ internal class IOSPlatform(
         // TODO("Not yet implemented")
     }
 
+    override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> {
+        TODO("Not yet implemented")
+    }
+
     private fun createQueue(uniqueId: String): NSOperationQueue {
         return NSOperationQueue().apply {
             setName(uniqueId)
@@ -175,12 +180,3 @@ internal class IOSPlatform(
         }
     }
 }
-
-internal actual fun registerPlatform() {
-    Lorraine.registerPlatform(
-        platform = IOSPlatform(),
-        db = createDatabaseBuilder()
-    )
-}
-
-internal fun createPlatform(): Platform = IOSPlatform()
