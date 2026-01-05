@@ -4,9 +4,6 @@ import androidx.room.RoomDatabase
 import io.dot.lorraine.IOSPlatform
 import io.dot.lorraine.Platform
 import io.dot.lorraine.db.LorraineDB
-import io.dot.lorraine.db.dao.WorkerDao
-import io.dot.lorraine.dsl.LorraineDefinition
-import kotlinx.coroutines.CoroutineScope
 
 class IosLorraineContext private constructor() : LorraineContext() {
 
@@ -14,12 +11,8 @@ class IosLorraineContext private constructor() : LorraineContext() {
         return io.dot.lorraine.db.createDatabaseBuilder()
     }
 
-    override fun createPlatform(
-        coroutineScope: CoroutineScope,
-        workerDao: WorkerDao,
-        definitions: Map<String, LorraineDefinition>
-    ): Platform {
-        return IOSPlatform()
+    override fun createPlatform(application: LorraineApplication): Platform {
+        return IOSPlatform(application = application)
     }
 
     companion object {
