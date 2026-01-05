@@ -96,13 +96,23 @@ room {
 }
 
 dependencies {
-    ksp(libs.androidx.room.compiler)
-//    kspCommonMainMetadata(libs.androidx.room.compiler)
-//    add("kspAndroid", libs.androidx.room.compiler)
-//    add("kspIosX64", libs.androidx.room.compiler)
-//    add("kspIosArm64", libs.androidx.room.compiler)
-//    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
+    listOf(
+        "kspAndroid",
+        "kspIosSimulatorArm64",
+        "kspIosX64",
+        "kspIosArm64"
+    ).forEach {
+        add(it, libs.androidx.room.compiler)
+    }
 }
+//dependencies {
+//    ksp(libs.androidx.room.compiler)
+////    kspCommonMainMetadata(libs.androidx.room.compiler)
+////    add("kspAndroid", libs.androidx.room.compiler)
+////    add("kspIosX64", libs.androidx.room.compiler)
+////    add("kspIosArm64", libs.androidx.room.compiler)
+////    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
+//}
 
 //tasks.withType<KotlinNativeCompile>().configureEach {
 //    if (name != "kspCommonMainKotlinMetadata") {
