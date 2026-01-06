@@ -2,12 +2,8 @@ package io.dot.lorraine.logger
 
 interface Logger {
 
-    enum class Type {
-        INFO,
-        ERROR
-    }
-
-    fun log(type: Type, message: String)
+    fun info(message: String)
+    fun error(message: String)
 
     companion object {
 
@@ -18,7 +14,8 @@ interface Logger {
 }
 
 expect object DefaultLogger : Logger {
+    override fun info(message: String)
+    override fun error(message: String)
 
-    override fun log(type: Logger.Type, message: String)
 
 }
