@@ -1,11 +1,6 @@
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import io.dot.lorraine.Lorraine
 import io.dot.lorraine.dsl.startLorraine
 import io.dot.lorraine.models.LorraineContext
@@ -49,15 +44,7 @@ fun App() {
     MaterialTheme {
         val viewModel = remember { TestViewModel() }
 
-        Scaffold(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier.padding(it)
-            ) {
-                TestScreen(viewModel)
-            }
-        }
+        TestScreen(viewModel)
     }
 }
 
