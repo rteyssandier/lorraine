@@ -2,6 +2,7 @@
 
 package io.dot.lorraine
 
+import io.dot.lorraine.constraint.BatteryNotLowCheck
 import io.dot.lorraine.constraint.ConnectivityCheck
 import io.dot.lorraine.constraint.ConstraintCheck
 import io.dot.lorraine.constraint.match
@@ -35,6 +36,10 @@ internal class IOSPlatform(
 
     val constraints = listOf<ConstraintCheck>(
         ConnectivityCheck(
+            scope = scope,
+            onChange = ::constraintChanged
+        ),
+        BatteryNotLowCheck(
             scope = scope,
             onChange = ::constraintChanged
         )
