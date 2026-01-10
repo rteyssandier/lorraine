@@ -5,9 +5,14 @@ package io.dot.lorraine.work
 import io.dot.lorraine.IOSPlatform
 import io.dot.lorraine.constraint.match
 import io.dot.lorraine.db.entity.toDomain
+import io.dot.lorraine.error.LorraineWorkCancellation
 import io.dot.lorraine.models.LorraineApplication
 import io.dot.lorraine.models.LorraineInfo
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import platform.Foundation.NSBlockOperation
 import kotlin.time.Duration.Companion.seconds
@@ -15,10 +20,12 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 internal class LorraineWorker(
-    private val workerUuid: Uuid,
+    val workerUuid: Uuid,
     private val application: LorraineApplication,
     private val platform: IOSPlatform
 ) : NSBlockOperation() {
+
+    private var workJob: Deferred<LorraineResult>? = null
 
     override fun isAsynchronous(): Boolean = true
 
@@ -39,10 +46,9 @@ internal class LorraineWorker(
         val worker = workerDefinition.invoke()
 
         dao.update(workerData.copy(state = LorraineInfo.State.RUNNING))
+        workJob = async { worker.doWork(workerData.inputData) }
 
-        delay(3.seconds)
-
-        val result = worker.doWork(workerData.inputData)
+        val result = workJob?.await() ?: return@runBlocking
         val state = when (result) {
             is LorraineResult.Failure -> {
                 LorraineInfo.State.FAILED
@@ -69,7 +75,14 @@ internal class LorraineWorker(
     }
 
     override fun cancel() {
+        workJob?.cancel(LorraineWorkCancellation())
         super.cancel()
+        application.scope.launch {
+            val dao = application.database.workerDao()
+            val workerData = dao.getWorker(uuidString = workerUuid.toString()) ?: return@launch
+
+            dao.update(workerData.copy(state = LorraineInfo.State.CANCELLED))
+        }
     }
 
 }

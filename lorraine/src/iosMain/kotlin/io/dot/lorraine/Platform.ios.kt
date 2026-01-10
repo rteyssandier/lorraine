@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import platform.Foundation.NSOperation
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.operations
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -171,25 +172,49 @@ internal class IOSPlatform(
     }
 
     override suspend fun cancelWorkById(uuid: Uuid) {
-        dao.getWorker(uuid.toHexString())
-        // TODO("Not yet implemented")
+        val worker = dao.getWorker(uuid.toHexString()) ?: return
+        val lorraineWorker = queues[worker.queueId]?.operations
+            .orEmpty()
+            .filterIsInstance<LorraineWorker>()
+            .find { it.workerUuid == uuid }
+            ?: return
+
+        lorraineWorker.cancel()
+        dao.update(worker.copy(state = LorraineInfo.State.CANCELLED))
     }
 
     override suspend fun cancelUniqueWork(queueId: String) {
-        // TODO("Not yet implemented")
+        val queue = queues[queueId] ?: return
+
+        queue.operations
+            .filterIsInstance<LorraineWorker>()
+            .forEach { cancelWorkById(it.workerUuid) }
     }
 
+
     override suspend fun cancelAllWorkByTag(tag: String) {
-        // TODO("Not yet implemented")
+        queues.flatMap { (_, operation) ->
+            operation.operations
+                .filterIsInstance<LorraineWorker>()
+                .filter {
+                    dao.getWorker(it.workerUuid.toString())
+                        ?.tags
+                        .orEmpty()
+                        .contains(tag)
+                }
+        }
+            .forEach { cancelWorkById(it.workerUuid) }
     }
 
     override suspend fun cancelAllWork() {
-        queues.forEach { it.value.cancelAllOperations() }
-        queues.clear()
+        queues.forEach { cancelUniqueWork(it.key) }
     }
 
     override suspend fun pruneWork() {
-        // TODO("Not yet implemented")
+        dao.delete(
+            dao.getWorkers()
+                .filter { it.state.isFinished }
+        )
     }
 
     override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> = dao.getWorkersAsFlow()
