@@ -80,10 +80,14 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.bundles.test.unit)
+            implementation(libs.androidx.room.testing)
+            implementation(libs.kotlin.coroutine.test)
         }
 
         androidMain.dependencies {
             implementation(libs.androidx.work.runtime)
+            implementation(libs.androidx.core.test)
+            implementation(libs.androidx.test)
         }
     }
 }
@@ -108,6 +112,7 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

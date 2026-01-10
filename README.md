@@ -89,7 +89,7 @@ Report any issue on this GitHub repository.
 
 ## To Do
 
-- [ ] Add support for PeriodicWork 
+- [ ] Add support for PeriodicWork
 - [ ] Add support for JVM
 - [ ] Add support for WASM
 - [ ] Review BackgroundTask in iOS, to maybe use it
