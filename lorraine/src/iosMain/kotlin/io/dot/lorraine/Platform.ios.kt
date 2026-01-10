@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import platform.Foundation.NSOperation
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.operations
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -171,7 +172,17 @@ internal class IOSPlatform(
     }
 
     override suspend fun cancelWorkById(uuid: Uuid) {
-        dao.getWorker(uuid.toHexString())
+        val queueId = dao.getWorker(uuid.toHexString())
+            ?.queueId
+            ?: return
+        val worker = queues[queueId]?.operations
+            .orEmpty()
+            .filterIsInstance<LorraineWorker>()
+            .find { it.workerUuid == uuid }
+            ?: return
+
+
+        worker.cancel()
         // TODO("Not yet implemented")
     }
 
