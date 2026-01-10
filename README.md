@@ -1,105 +1,156 @@
 # Lorraine
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.dottttt.lorraine/lorraine/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.dottttt.lorraine/lorraine)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.dottttt.lorraine/lorraine/badge.svg)](https://maven-central.sonatype.com/search?q=g:io.github.dottttt.lorraine%20a:lorraine)
 
-Lorraine is a work management framework for tasks.
+**Lorraine** is a lightweight, persistent work management framework for Kotlin Multiplatform. Inspired by Android's WorkManager and NSOperation, it provides a unified API for managing background tasks across Android and iOS, ensuring they run even if the app is restarted.
 
-### Setup
+## ✨ Features
 
-First add the dependency to your project:
+- 📱 **Kotlin Multiplatform**: Shared logic for Android and iOS.
+- 💾 **Persistence**: Tasks are stored in a local SQLite database (via Room) and resumed after app restarts.
+- 🔗 **Work Chaining**: Easily chain multiple tasks together with `then` operations.
+- ⚙️ **Constraints**: Define requirements like `requiredNetwork` for your tasks.
+- 🛠️ **DSL-based API**: Clean and intuitive DSL for initialization and task definition.
+- 📊 **Monitoring**: Observe task status using Kotlin Flows.
 
-Lastest version: https://mvnrepository.com/artifact/io.github.dottttt.lorraine/lorraine
+## 🚀 Setup
+
+Add the dependency to your project using Version Catalogs:
 
 ```toml
 [versions]
-lorraine = "$lastestversion"
+lorraine = "0.0.3" # Use the latest version
 
 [libraries]
 lorraine = { module = "io.github.dottttt.lorraine:lorraine", version.ref = "lorraine" }
 ```
 
-## Using it
+In your module's `build.gradle.kts`:
 
-#### Getting started
-
-Initialize Lorraine with workers.
-
-> Still not satisfied with the current initialization workflow. Any input are welcome.
-
-Shared
 ```kotlin
-const val GET_WORKER = "GET_WORKER"
-
-fun init(context: LorraineContext) {
-    val lorraine = startLorraine(context) {
-        work(GET_WORKER) { GetWorker() }
-        ...
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.lorraine)
+        }
     }
 }
 ```
 
-Android
+## 🛠️ Usage
+
+### 1. Define a Worker
+
+Create your background logic by extending `WorkLorraine`. Use `LorraineResult` to communicate the outcome.
+
+```kotlin
+class SyncDataWorker : WorkLorraine() {
+    override suspend fun doWork(inputData: LorraineData?): LorraineResult {
+        return try {
+            // Your heavy work here
+            // val userId = inputData?.getString("userId")
+            LorraineResult.success()
+        } catch (e: Exception) {
+            LorraineResult.retry() // Or LorraineResult.failure()
+        }
+    }
+}
+```
+
+### 2. Initialize Lorraine
+
+Register your workers during app startup.
+
+#### Shared Code
+```kotlin
+const val SYNC_USER = "SYNC_USER"
+
+fun initLorraine(context: LorraineContext): Lorraine {
+    return startLorraine(context) {
+        work(SYNC_USER) { SyncDataWorker() }
+        
+        logger {
+            enable = true // Enable internal logging for debugging
+        }
+    }
+}
+```
+
+#### Android
 ```kotlin
 class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        init(createLorraineContext(this))
+        initLorraine(createLorraineContext(this))
     }
 }
 ```
 
-iOS
+#### iOS
 ```kotlin
-init(createLorraineContext())
+// In your iOS Application delegate or SwiftUI App
+initLorraine(createLorraineContext())
 ```
 
-Create workers by extending `WorkLorraine`
+### 3. Enqueue Tasks
 
-```kotlin
-class GetWorker : WorkLorraine() {
-
-    override suspend fun doWork(inputData: Data?): LorraineResult {
-        ...
-        return LorraineResult.success() / LorraineResult.retry() / LorraineResult.failure()
-    }
-    
-}
-```
-
-Launch your worker
-
+#### Single Task
 ```kotlin
 lorraine.enqueue(
-    uniqueId = "UNIQUE_ID",
-    type = ExistingLorrainePolicy.APPEND,
+    queueId = "single_sync",
+    type = ExistingLorrainePolicy.REPLACE,
     request = lorraineRequest {
-        identifier = GET_WORKER
+        identifier = SYNC_USER
         constraints { 
-            requiredNetwork = true
+            requiredNetwork = true 
         }
     }
 )
 ```
 
-## Reporting Issues / Support
+#### Work Chaining (Operations)
+Combine multiple requests into a single operation.
 
-Looking for application willing to use it, and have some feedback to add further improvement.
+```kotlin
+val operation = lorraineOperation {
+    existingPolicy = ExistingLorrainePolicy.APPEND
+    
+    startWith {
+        identifier = "REFRESH_TOKEN"
+    }
+    then {
+        identifier = SYNC_USER
+    }
+}
 
-Report any issue on this GitHub repository.
+lorraine.enqueue("user_refresh_chain", operation)
+```
 
-## To Do
+## 🔍 Observing Work
 
-- [ ] Add support for PeriodicWork 
-- [ ] Add support for JVM
-- [ ] Add support for WASM
-- [ ] Review BackgroundTask in iOS, to maybe use it
+You can monitor the status of your tasks in real-time:
 
-## Inspirations
+```kotlin
+lorraine.listenLorrainesInfo().collect { infoList ->
+    infoList.forEach { info ->
+        println("Task ${info.id}: ${info.state}")
+    }
+}
+```
 
-- Koin (for dsl): https://github.com/InsertKoinIO/koin
-- WorkManager (for Android): https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
-- NSOperation (for iOS): https://developer.apple.com/documentation/foundation/nsoperation
+## 🚧 Roadmap
 
-## Contributing
+- [ ] Add support for `PeriodicWork`
+- [ ] JVM Support
+- [ ] WASM Support
+- [ ] Advanced iOS BackgroundTask integration
 
-Feel free to open pull request
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to open a pull request or report issues.
+
+## ❤️ Inspirations
+
+- [Koin](https://github.com/InsertKoinIO/koin) - For the elegant DSL structure.
+- [WorkManager](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started) - For the core concepts of persistent background work.
+- [NSOperation](https://developer.apple.com/documentation/foundation/nsoperation) - For task queueing logic.
