@@ -172,35 +172,49 @@ internal class IOSPlatform(
     }
 
     override suspend fun cancelWorkById(uuid: Uuid) {
-        val queueId = dao.getWorker(uuid.toHexString())
-            ?.queueId
-            ?: return
-        val worker = queues[queueId]?.operations
+        val worker = dao.getWorker(uuid.toHexString()) ?: return
+        val lorraineWorker = queues[worker.queueId]?.operations
             .orEmpty()
             .filterIsInstance<LorraineWorker>()
             .find { it.workerUuid == uuid }
             ?: return
 
-
-        worker.cancel()
-        // TODO("Not yet implemented")
+        lorraineWorker.cancel()
+        dao.update(worker.copy(state = LorraineInfo.State.CANCELLED))
     }
 
     override suspend fun cancelUniqueWork(queueId: String) {
-        // TODO("Not yet implemented")
+        val queue = queues[queueId] ?: return
+
+        queue.operations
+            .filterIsInstance<LorraineWorker>()
+            .forEach { cancelWorkById(it.workerUuid) }
     }
 
+
     override suspend fun cancelAllWorkByTag(tag: String) {
-        // TODO("Not yet implemented")
+        queues.flatMap { (_, operation) ->
+            operation.operations
+                .filterIsInstance<LorraineWorker>()
+                .filter {
+                    dao.getWorker(it.workerUuid.toString())
+                        ?.tags
+                        .orEmpty()
+                        .contains(tag)
+                }
+        }
+            .forEach { cancelWorkById(it.workerUuid) }
     }
 
     override suspend fun cancelAllWork() {
-        queues.forEach { it.value.cancelAllOperations() }
-        queues.clear()
+        queues.forEach { cancelUniqueWork(it.key) }
     }
 
     override suspend fun pruneWork() {
-        // TODO("Not yet implemented")
+        dao.delete(
+            dao.getWorkers()
+                .filter { it.state.isFinished }
+        )
     }
 
     override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> = dao.getWorkersAsFlow()
