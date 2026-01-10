@@ -3,7 +3,11 @@
 package io.dot.lorraine
 
 import io.dot.lorraine.dsl.LorraineOperation
+import io.dot.lorraine.dsl.LorraineOperationDefinition
 import io.dot.lorraine.dsl.LorraineRequest
+import io.dot.lorraine.dsl.LorraineRequestDefinition
+import io.dot.lorraine.dsl.lorraineOperation
+import io.dot.lorraine.dsl.lorraineRequest
 import io.dot.lorraine.models.ExistingLorrainePolicy
 import io.dot.lorraine.models.LorraineInfo
 import kotlinx.coroutines.flow.Flow
@@ -88,4 +92,26 @@ class Lorraine private constructor(
 
     }
 
+}
+
+suspend fun Lorraine.enqueue(
+    queueId: String,
+    type: ExistingLorrainePolicy,
+    block: LorraineRequestDefinition.() -> Unit
+) {
+    enqueue(
+        queueId = queueId,
+        type = type,
+        request = lorraineRequest(block)
+    )
+}
+
+suspend fun Lorraine.enqueue(
+    queueId: String,
+    block: LorraineOperationDefinition.() -> Unit
+) {
+    enqueue(
+        queueId = queueId,
+        operation = lorraineOperation(block)
+    )
 }
