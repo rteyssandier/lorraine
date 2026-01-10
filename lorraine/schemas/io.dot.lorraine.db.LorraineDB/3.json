@@ -1,0 +1,83 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "3aa46bbfd2b3c83f0efd26e20dc287f2",
+    "entities": [
+      {
+        "tableName": "worker",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uuid` TEXT NOT NULL, `queue_id` TEXT NOT NULL, `identifier` TEXT NOT NULL, `state` TEXT NOT NULL, `tags` TEXT NOT NULL, `worker_dependencies` TEXT NOT NULL, `input_data` TEXT, `output_data` TEXT, `constraints_require_network` INTEGER NOT NULL, `constraints_require_battery_not_low` INTEGER NOT NULL, PRIMARY KEY(`uuid`))",
+        "fields": [
+          {
+            "fieldPath": "uuid",
+            "columnName": "uuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "queueId",
+            "columnName": "queue_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "identifier",
+            "columnName": "identifier",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tags",
+            "columnName": "tags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workerDependencies",
+            "columnName": "worker_dependencies",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputData",
+            "columnName": "input_data",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "outputData",
+            "columnName": "output_data",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "constraints.requireNetwork",
+            "columnName": "constraints_require_network",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "constraints.requireBatteryNotLow",
+            "columnName": "constraints_require_battery_not_low",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uuid"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3aa46bbfd2b3c83f0efd26e20dc287f2')"
+    ]
+  }
+}
