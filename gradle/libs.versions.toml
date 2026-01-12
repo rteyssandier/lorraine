@@ -70,7 +70,7 @@ koin = ["koin-core", "koin-compose-core", "koin-compose-viewmodel"]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-android-library = { id = "com.android.library", version.ref = "agp" }
+android-kotlin = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 
 androidx-room = { id = "androidx.room", version.ref = "androidx-room" }
 
