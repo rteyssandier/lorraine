@@ -17,7 +17,7 @@ plugins {
     alias(libs.plugins.publish)
 }
 
-val lorraineVersion = "0.2.2"
+val lorraineVersion = getLatestGitTag()
 
 group = "io.github.dottttt.lorraine"
 version = lorraineVersion
@@ -150,4 +150,20 @@ mavenPublishing {
 
     publishToMavenCentral()
     signAllPublications()
+}
+
+fun getLatestGitTag(): String {
+    return try {
+        val process = ProcessBuilder("git", "describe", "--tags", "--abbrev=0")
+            .directory(rootProject.projectDir)
+            .start()
+        val tag = process.inputStream
+            .bufferedReader()
+            .readText()
+
+        process.waitFor()
+        tag.trim().removePrefix("v")
+    } catch (e: java.io.IOException) {
+        "0.0.1"
+    }
 }
