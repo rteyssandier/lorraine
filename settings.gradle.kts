@@ -19,4 +19,3 @@ dependencyResolutionManagement {
 
 include(":lorraine")
 include(":sampleApp")
-include(":docsApp")
