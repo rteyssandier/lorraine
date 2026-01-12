@@ -1,16 +1,10 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
-import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
-import javax.inject.Inject
-import org.gradle.api.provider.ValueSource
-import org.gradle.api.provider.ValueSourceParameters
-import org.gradle.process.ExecOperations
-import org.gradle.api.file.DirectoryProperty
 import java.io.ByteArrayOutputStream
 
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.kotlin)
 
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
@@ -61,11 +55,9 @@ kotlin {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
-    androidTarget {
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
+    androidLibrary {
+        namespace = "io.github.dottttt.lorraine"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
     }
 
     listOf(
@@ -132,18 +124,6 @@ dependencies {
         "kspIosArm64"
     ).forEach {
         add(it, libs.androidx.room.compiler)
-    }
-}
-
-android {
-    namespace = "fr.modulotech.workmanager"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
