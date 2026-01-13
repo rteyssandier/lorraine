@@ -1,5 +1,6 @@
 package io.dot.lorraine.dsl
 
+@ConsistentCopyVisibility
 data class LorraineConstraints internal constructor(
     val requireNetwork: Boolean
 ) {
