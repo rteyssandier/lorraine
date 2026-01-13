@@ -9,7 +9,7 @@
 - 📱 **Kotlin Multiplatform**: Shared logic for Android and iOS.
 - 💾 **Persistence**: Tasks are stored in a local SQLite database (via Room) and resumed after app restarts.
 - 🔗 **Work Chaining**: Easily chain multiple tasks together with `then` operations.
-- ⚙️ **Constraints**: Define requirements like `requiredNetwork` for your tasks.
+- ⚙️ **Constraints**: Define requirements like `requiredNetwork` and `requireBatteryNotLow` for your tasks.
 - 🛠️ **DSL-based API**: Clean and intuitive DSL for initialization and task definition.
 - 📊 **Monitoring**: Observe task status using Kotlin Flows.
 

@@ -11,7 +11,7 @@ import io.dot.lorraine.db.dao.WorkerDao
 import io.dot.lorraine.db.entity.WorkerEntity
 
 @Database(
-    version = 2,
+    version = 3,
     entities = [
         WorkerEntity::class
     ]
