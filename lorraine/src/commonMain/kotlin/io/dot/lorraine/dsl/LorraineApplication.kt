@@ -13,7 +13,7 @@ import io.dot.lorraine.db.entity.LongData
 import io.dot.lorraine.db.entity.StringData
 import io.dot.lorraine.db.entity.UnknownData
 import io.dot.lorraine.logger.DefaultLogger
-import io.dot.lorraine.logger.Logger
+import io.dot.lorraine.logger.LorraineLogger
 import io.dot.lorraine.logger.NoOpLogger
 import io.dot.lorraine.models.LorraineApplication
 import io.dot.lorraine.models.LorraineContext
@@ -88,7 +88,7 @@ class LorraineDefinition internal constructor() {
         loggerDefinition = LoggerDefinition().apply(block)
     }
 
-    internal fun createLogger(): Logger = loggerDefinition?.createLogger() ?: NoOpLogger
+    internal fun createLogger(): LorraineLogger = loggerDefinition?.createLogger() ?: NoOpLogger
 
 }
 
@@ -96,9 +96,9 @@ class LoggerDefinition internal constructor() {
     // TODO Add level
 
     var enable: Boolean = false
-    var logger: Logger = DefaultLogger
+    var logger: LorraineLogger = DefaultLogger
 
-    internal fun createLogger(): Logger = if (enable) logger else NoOpLogger
+    internal fun createLogger(): LorraineLogger = if (enable) logger else NoOpLogger
 }
 
 

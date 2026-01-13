@@ -1,6 +1,6 @@
 package io.dot.lorraine.logger
 
-internal object NoOpLogger : Logger {
+internal object NoOpLogger : LorraineLogger {
 
     override fun info(message: String) {
         // No-op
