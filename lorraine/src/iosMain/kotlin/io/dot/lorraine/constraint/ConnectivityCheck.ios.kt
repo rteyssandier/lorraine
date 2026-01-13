@@ -1,6 +1,7 @@
 package io.dot.lorraine.constraint
 
 import io.dot.lorraine.dsl.LorraineConstraints
+import io.dot.lorraine.logger.LorraineLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.onEach
@@ -21,7 +22,8 @@ import platform.darwin.dispatch_queue_create
 
 internal class ConnectivityCheck(
     scope: CoroutineScope,
-    onChange: () -> Unit
+    onChange: () -> Unit,
+    logger: LorraineLogger
 ) : ConstraintCheck {
 
     private val observer = AppleNetworkObserver()
@@ -38,7 +40,7 @@ internal class ConnectivityCheck(
         )
 
         scope.launch {
-            _value.onEach { println("ConnectivityCheck: $it") }.collect { onChange() }
+            _value.onEach { logger.info("ConnectivityCheck: $it") }.collect { onChange() }
         }
     }
 

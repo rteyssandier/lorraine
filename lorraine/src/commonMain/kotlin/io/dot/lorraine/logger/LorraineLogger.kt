@@ -1,6 +1,6 @@
 package io.dot.lorraine.logger
 
-interface Logger {
+interface LorraineLogger {
 
     fun info(message: String)
     fun error(message: String)
@@ -13,7 +13,7 @@ interface Logger {
 
 }
 
-expect object DefaultLogger : Logger {
+expect object DefaultLogger : LorraineLogger {
     override fun info(message: String)
     override fun error(message: String)
 
