@@ -126,6 +126,35 @@ val operation = lorraineOperation {
 lorraine.enqueue("user_refresh_chain", operation)
 ```
 
+## 🔄 Migration Guide (0.3.0 to 0.4.0)
+
+Version 0.4.0 introduces a major change in how background tasks are handled on iOS. We've migrated from `NSOperationQueue` to `BGTaskScheduler` for better system integration.
+
+### 1. Register Background Tasks (iOS Only)
+
+You **must** now call `registerTasks()` as early as possible in your app's lifecycle (usually in `application(_:didFinishLaunchingWithOptions:)` or your SwiftUI `App` init).
+
+```kotlin
+// Shared initialization
+val lorraine = initLorraine(context)
+lorraine.registerTasks() // New mandatory step for iOS
+```
+
+### 2. Update Info.plist (iOS Only)
+
+Add the `BGTaskSchedulerPermittedIdentifiers` key to your `Info.plist` and add the Lorraine background task identifier: `io.dot.lorraine.work`.
+
+```xml
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>io.dot.lorraine.work</string>
+</array>
+```
+
+Also, ensure **Background Modes** (Background fetch and Background processing) are enabled in your project's Capabilities.
+
+---
+
 ## 🔍 Observing Work
 
 You can monitor the status of your tasks in real-time:

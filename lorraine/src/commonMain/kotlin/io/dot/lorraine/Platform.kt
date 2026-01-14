@@ -36,4 +36,6 @@ internal interface Platform {
 
     fun listenLorrainesInfo(): Flow<List<LorraineInfo>>
 
+    fun registerTasks()
+
 }

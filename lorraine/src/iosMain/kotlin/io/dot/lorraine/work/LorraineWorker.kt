@@ -23,13 +23,11 @@ internal class LorraineWorker(
     val workerUuid: Uuid,
     private val application: LorraineApplication,
     private val platform: IOSPlatform
-) : NSBlockOperation() {
+) {
 
     private var workJob: Deferred<LorraineResult>? = null
 
-    override fun isAsynchronous(): Boolean = true
-
-    override fun main() = runBlocking {
+    suspend fun execute() {
         val dao = application.database.workerDao()
         val workerData = dao.getWorker(uuidString = workerUuid.toString()) ?: error("WorkLorraine not found")
         val identifier = requireNotNull(workerData.identifier) { "Identifier not found" }
@@ -40,43 +38,44 @@ internal class LorraineWorker(
         // TODO Check dependencies
         if (!platform.constraints.match(workerData.constraints.toDomain())) {
             dao.update(workerData.copy(state = LorraineInfo.State.BLOCKED))
-            return@runBlocking
+            return
         }
 
         val worker = workerDefinition.invoke()
 
         dao.update(workerData.copy(state = LorraineInfo.State.RUNNING))
-        workJob = async { worker.doWork(workerData.inputData) }
+        try {
+            val result = worker.doWork(workerData.inputData)
+            val state = when (result) {
+                is LorraineResult.Failure -> {
+                    LorraineInfo.State.FAILED
+                }
 
-        val result = workJob?.await() ?: return@runBlocking
-        val state = when (result) {
-            is LorraineResult.Failure -> {
-                LorraineInfo.State.FAILED
+                is LorraineResult.Retry -> {
+                    // TODO Re-enqueue
+                    LorraineInfo.State.FAILED
+                }
+
+                is LorraineResult.Success -> {
+                    // TODO Delete worker if not in operation
+                    // TODO Delete all worker in operation, if all finish
+                    LorraineInfo.State.SUCCEEDED
+                }
             }
 
-            is LorraineResult.Retry -> {
-                // TODO Re-enqueue
-                LorraineInfo.State.FAILED
-            }
-
-            is LorraineResult.Success -> {
-                // TODO Delete worker if not in operation
-                // TODO Delete all worker in operation, if all finish
-                LorraineInfo.State.SUCCEEDED
-            }
-        }
-
-        dao.update(
-            workerData.copy(
-                state = state,
-                outputData = result.outputData
+            dao.update(
+                workerData.copy(
+                    state = state,
+                    outputData = result.outputData
+                )
             )
-        )
+        } catch (e: Exception) {
+            dao.update(workerData.copy(state = LorraineInfo.State.FAILED))
+        }
     }
 
-    override fun cancel() {
+    fun cancel() {
         workJob?.cancel(LorraineWorkCancellation())
-        super.cancel()
         application.scope.launch {
             val dao = application.database.workerDao()
             val workerData = dao.getWorker(uuidString = workerUuid.toString()) ?: return@launch
