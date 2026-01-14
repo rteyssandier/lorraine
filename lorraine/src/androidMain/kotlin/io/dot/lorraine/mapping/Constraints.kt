@@ -11,6 +11,7 @@ internal fun LorraineConstraints.asWorkManagerConstraints(): Constraints {
         } else {
             NetworkType.NOT_REQUIRED
         },
-        requiresBatteryNotLow = requireBatteryNotLow
+        requiresBatteryNotLow = requireBatteryNotLow,
+        requiresCharging = requireCharging
     )
 }

@@ -3,6 +3,7 @@
 package io.dot.lorraine
 
 import io.dot.lorraine.constraint.BatteryNotLowCheck
+import io.dot.lorraine.constraint.ChargingCheck
 import io.dot.lorraine.constraint.ConnectivityCheck
 import io.dot.lorraine.constraint.ConstraintCheck
 import io.dot.lorraine.constraint.match
@@ -44,6 +45,11 @@ internal class IOSPlatform(
             logger = logger
         ),
         BatteryNotLowCheck(
+            scope = scope,
+            onChange = ::constraintChanged,
+            logger = logger
+        ),
+        ChargingCheck(
             scope = scope,
             onChange = ::constraintChanged,
             logger = logger
@@ -111,7 +117,7 @@ internal class IOSPlatform(
         operation: LorraineOperation
     ) {
         requireNotNull(operation.operations.firstOrNull()) {
-            "Operations shoud not be empty"
+            "Operations should not be empty"
         }
         val queue = queues.getOrElse(queueId) { createQueue(queueId) }
         var previous: NSOperation? = null
