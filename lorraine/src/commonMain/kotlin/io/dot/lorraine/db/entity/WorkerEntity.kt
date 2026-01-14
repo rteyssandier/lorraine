@@ -34,19 +34,19 @@ internal data class WorkerEntity(
     val state: LorraineInfo.State,
 
     @ColumnInfo(name = "tags")
-    @TypeConverters(StringSetConverter::class)
+    @param:TypeConverters(StringSetConverter::class)
     val tags: Set<String>,
 
     @ColumnInfo(name = "worker_dependencies")
-    @TypeConverters(StringSetConverter::class)
+    @param:TypeConverters(StringSetConverter::class)
     val workerDependencies: Set<String>,
 
     @ColumnInfo(name = "input_data")
-    @TypeConverters(DataConverter::class)
+    @param:TypeConverters(DataConverter::class)
     val inputData: LorraineData? = null,
 
     @ColumnInfo(name = "output_data")
-    @TypeConverters(DataConverter::class)
+    @param:TypeConverters(DataConverter::class)
     val outputData: LorraineData? = null,
 
     @Embedded(prefix = "constraints_")

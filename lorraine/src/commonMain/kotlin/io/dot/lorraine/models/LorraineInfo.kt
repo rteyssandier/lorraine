@@ -6,6 +6,7 @@ import io.dot.lorraine.work.LorraineData
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+@ConsistentCopyVisibility
 data class LorraineInfo internal constructor(
     val uuid: Uuid,
     val identifier: String,

@@ -2,6 +2,7 @@ package io.dot.lorraine.dsl
 
 import io.dot.lorraine.models.ExistingLorrainePolicy
 
+@ConsistentCopyVisibility
 data class LorraineOperation internal constructor(
     val operations: List<Operation>,
     val existingPolicy: ExistingLorrainePolicy
