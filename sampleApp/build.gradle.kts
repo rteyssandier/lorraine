@@ -51,7 +51,7 @@ kotlin {
 
     sourceSets {
         androidMain.dependencies {
-            implementation(compose.preview)
+            implementation(libs.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.okhttp)
         }
@@ -59,14 +59,14 @@ kotlin {
 
             implementation(projects.lorraine)
 
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
+            implementation(libs.material)
+            implementation(libs.ui)
+            implementation(libs.components.resources)
+            implementation(libs.ui.tooling.preview)
 
-            implementation(compose.material3)
+            implementation(libs.material3)
 
             implementation(libs.ktor.core)
             implementation(libs.ktor.serializarion)
