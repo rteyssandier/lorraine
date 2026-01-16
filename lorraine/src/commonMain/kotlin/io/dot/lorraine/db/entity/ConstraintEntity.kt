@@ -8,18 +8,22 @@ internal data class ConstraintEntity(
     @ColumnInfo(name = "require_network")
     val requireNetwork: Boolean,
     @ColumnInfo(name = "require_battery_not_low")
-    val requireBatteryNotLow: Boolean
+    val requireBatteryNotLow: Boolean,
+    @ColumnInfo(name = "require_charging")
+    val requireCharging: Boolean
 
 )
 
 internal fun ConstraintEntity.toDomain() = LorraineConstraints(
     requireNetwork = requireNetwork,
-    requireBatteryNotLow = requireBatteryNotLow
+    requireBatteryNotLow = requireBatteryNotLow,
+    requireCharging = requireCharging
 )
 
 internal fun LorraineConstraints.toEntity() = ConstraintEntity(
     requireNetwork = requireNetwork,
-    requireBatteryNotLow = requireBatteryNotLow
+    requireBatteryNotLow = requireBatteryNotLow,
+    requireCharging = requireCharging
 )
 
 
