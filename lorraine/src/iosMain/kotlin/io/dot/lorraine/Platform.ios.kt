@@ -1,3 +1,7 @@
+@file:OptIn(ExperimentalForeignApi::class, ExperimentalUuidApi::class)
+
+package io.dot.lorraine
+
 import io.dot.lorraine.constraint.BatteryNotLowCheck
 import io.dot.lorraine.constraint.ChargingCheck
 import io.dot.lorraine.constraint.ConnectivityCheck
@@ -12,7 +16,7 @@ import io.dot.lorraine.models.ExistingLorrainePolicy
 import io.dot.lorraine.models.LorraineApplication
 import io.dot.lorraine.models.LorraineInfo
 import io.dot.lorraine.work.LorraineWorker
-import kotlin.uuid.Uuid
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -22,16 +26,23 @@ import kotlinx.coroutines.sync.withLock
 import platform.BackgroundTasks.BGProcessingTask
 import platform.BackgroundTasks.BGProcessingTaskRequest
 import platform.BackgroundTasks.BGTaskScheduler
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 internal const val BG_TASK_IDENTIFIER = "io.dot.lorraine.work"
 
-internal class IOSPlatform(private val application: LorraineApplication) : Platform {
+internal class IOSPlatform(
+    private val application: LorraineApplication
+) : Platform {
 
     override val name: String = "ios"
 
     private val dao = application.database.workerDao()
     private val scope = application.scope
     private val logger = application.logger
+    private val mutex = Mutex()
+
+    private var processingJob: Job? = null
 
     val constraints = listOf<ConstraintCheck>(
         ConnectivityCheck(
@@ -50,22 +61,6 @@ internal class IOSPlatform(private val application: LorraineApplication) : Platf
             logger = logger
         )
     )
-    private val mutex = Mutex()
-    private var processingJob: Job? = null
-
-    val constraints =
-            listOf<ConstraintCheck>(
-                    ConnectivityCheck(
-                            scope = scope,
-                            onChange = ::constraintChanged,
-                            logger = logger
-                    ),
-                    BatteryNotLowCheck(
-                            scope = scope,
-                            onChange = ::constraintChanged,
-                            logger = logger
-                    )
-            )
 
     init {
         scope.launch { processQueue() }
@@ -73,14 +68,14 @@ internal class IOSPlatform(private val application: LorraineApplication) : Platf
 
     override fun registerTasks() {
         val registered =
-                BGTaskScheduler.sharedScheduler.registerForTaskWithIdentifier(
-                        identifier = BG_TASK_IDENTIFIER,
-                        usingQueue = null
-                ) { task ->
-                    if (task is BGProcessingTask) {
-                        handleBackgroundTask(task)
-                    }
+            BGTaskScheduler.sharedScheduler.registerForTaskWithIdentifier(
+                identifier = BG_TASK_IDENTIFIER,
+                usingQueue = null
+            ) { task ->
+                if (task is BGProcessingTask) {
+                    handleBackgroundTask(task)
                 }
+            }
         logger.info("BGTaskScheduler registered: $registered")
     }
 
@@ -90,10 +85,10 @@ internal class IOSPlatform(private val application: LorraineApplication) : Platf
         task.expirationHandler = { processingJob?.cancel() }
 
         processingJob =
-                scope.launch {
-                    processQueue()
-                    task.setTaskCompletedWithSuccess(true)
-                }
+            scope.launch {
+                processQueue()
+                task.setTaskCompletedWithSuccess(true)
+            }
     }
 
     private fun scheduleBackgroundTask() {
@@ -109,51 +104,43 @@ internal class IOSPlatform(private val application: LorraineApplication) : Platf
     }
 
     private suspend fun processQueue() =
-            mutex.withLock {
-                val workers =
-                        dao.getWorkers()
-                                .filter {
-                                    it.state == LorraineInfo.State.ENQUEUED ||
-                                            it.state == LorraineInfo.State.BLOCKED
-                                }
-                                .sortedBy {
-                                    it.id
-                                } // Basic FIFO for now, should respect dependencies
-
-                for (workerEntity in workers) {
-                    // Check dependencies
-                    val dependenciesMet =
-                            workerEntity.workerDependencies.all { depId ->
-                                dao.getWorker(depId)?.state == LorraineInfo.State.SUCCEEDED
-                            }
-                    if (!dependenciesMet) continue
-
-                    // Check constraints
-                    if (!constraints.match(workerEntity.constraints.toDomain())) {
-                        dao.update(workerEntity.copy(state = LorraineInfo.State.BLOCKED))
-                        continue
+        mutex.withLock {
+            val workers =
+                dao.getWorkers()
+                    .filter {
+                        it.state == LorraineInfo.State.ENQUEUED ||
+                                it.state == LorraineInfo.State.BLOCKED
                     }
+                    .sortedBy { it.uuid } // Basic FIFO for now, should respect dependencies
 
-                    val worker =
-                            LorraineWorker(
-                                    workerUuid = Uuid.parse(workerEntity.uuid),
-                                    application = application,
-                                    platform = this
-                            )
-                    worker.execute()
+            for (workerEntity in workers) {
+                // Check dependencies
+                val dependenciesMet =
+                    workerEntity.workerDependencies.all { depId ->
+                        dao.getWorker(depId)?.state == LorraineInfo.State.SUCCEEDED
+                    }
+                if (!dependenciesMet) continue
+
+                // Check constraints
+                if (!constraints.match(workerEntity.constraints.toDomain())) {
+                    dao.update(workerEntity.copy(state = LorraineInfo.State.BLOCKED))
+                    continue
                 }
+
+                val worker = LorraineWorker(
+                    workerUuid = Uuid.parse(workerEntity.uuid),
+                    application = application,
+                    platform = this
+                )
+                worker.execute()
             }
+        }
 
     override suspend fun enqueue(
-            queueId: String,
-            type: ExistingLorrainePolicy,
-            lorraineRequest: LorraineRequest
+        queueId: String,
+        type: ExistingLorrainePolicy,
+        lorraineRequest: LorraineRequest
     ) {
-        requireNotNull(operation.operations.firstOrNull()) {
-            "Operations should not be empty"
-        }
-        val queue = queues.getOrElse(queueId) { createQueue(queueId) }
-        var previous: NSOperation? = null
         val uuid = Uuid.random()
         val worker = createWorkerEntity(uuid = uuid, queueId = queueId, request = lorraineRequest)
 
@@ -164,15 +151,13 @@ internal class IOSPlatform(private val application: LorraineApplication) : Platf
 
     override suspend fun enqueue(queueId: String, operation: LorraineOperation) {
         requireNotNull(operation.operations.firstOrNull()) { "Operations should not be empty" }
-
-        val workers =
-                operation.operations.map { op ->
-                    createWorkerEntity(
-                            uuid = Uuid.random(),
-                            queueId = queueId,
-                            request = op.request
-                    )
-                }
+        val workers = operation.operations.map { op ->
+            createWorkerEntity(
+                uuid = Uuid.random(),
+                queueId = queueId,
+                request = op.request
+            )
+        }
 
         dao.insert(workers)
         scheduleBackgroundTask()
@@ -209,5 +194,5 @@ internal class IOSPlatform(private val application: LorraineApplication) : Platf
     }
 
     override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> =
-            dao.getWorkersAsFlow().map { list -> list.map { it.toInfo() } }
+        dao.getWorkersAsFlow().map { list -> list.map { it.toInfo() } }
 }
