@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalUuidApi::class)
+@file:OptIn(ExperimentalForeignApi::class, ExperimentalUuidApi::class)
 
 package io.dot.lorraine
 
@@ -7,7 +7,6 @@ import io.dot.lorraine.constraint.ChargingCheck
 import io.dot.lorraine.constraint.ConnectivityCheck
 import io.dot.lorraine.constraint.ConstraintCheck
 import io.dot.lorraine.constraint.match
-import io.dot.lorraine.db.entity.WorkerEntity
 import io.dot.lorraine.db.entity.createWorkerEntity
 import io.dot.lorraine.db.entity.toDomain
 import io.dot.lorraine.db.entity.toInfo
@@ -17,14 +16,20 @@ import io.dot.lorraine.models.ExistingLorrainePolicy
 import io.dot.lorraine.models.LorraineApplication
 import io.dot.lorraine.models.LorraineInfo
 import io.dot.lorraine.work.LorraineWorker
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import platform.Foundation.NSOperation
-import platform.Foundation.NSOperationQueue
-import platform.Foundation.operations
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import platform.BackgroundTasks.BGProcessingTask
+import platform.BackgroundTasks.BGProcessingTaskRequest
+import platform.BackgroundTasks.BGTaskScheduler
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+
+internal const val BG_TASK_IDENTIFIER = "io.dot.lorraine.work"
 
 internal class IOSPlatform(
     private val application: LorraineApplication
@@ -33,10 +38,11 @@ internal class IOSPlatform(
     override val name: String = "ios"
 
     private val dao = application.database.workerDao()
-    private val queues: MutableMap<String, NSOperationQueue> = mutableMapOf()
     private val scope = application.scope
-
     private val logger = application.logger
+    private val mutex = Mutex()
+
+    private var processingJob: Job? = null
 
     val constraints = listOf<ConstraintCheck>(
         ConnectivityCheck(
@@ -57,189 +63,136 @@ internal class IOSPlatform(
     )
 
     init {
-        application.scope.launch {
-            dao.getWorkers()
-                .groupBy(WorkerEntity::queueId)
-                .forEach { (queueId, workers) ->
-                    val nsOperation = NSOperationQueue()
-                    var previous: NSOperation? = null
+        scope.launch { processQueue() }
+    }
 
-                    workers.map {
-                        LorraineWorker(
-                            workerUuid = Uuid.parse(it.uuid),
-                            application = application,
-                            platform = this@IOSPlatform
-                        )
-                    }
-                        .forEach { worker ->
-                            previous?.let { previous -> worker.addDependency(previous) }
-                            previous = worker
-                            nsOperation.addOperation(worker)
-                        }
-
-                    queues[queueId] = nsOperation
+    override fun registerTasks() {
+        val registered =
+            BGTaskScheduler.sharedScheduler.registerForTaskWithIdentifier(
+                identifier = BG_TASK_IDENTIFIER,
+                usingQueue = null
+            ) { task ->
+                if (task is BGProcessingTask) {
+                    handleBackgroundTask(task)
                 }
+            }
+        logger.info("BGTaskScheduler registered: $registered")
+    }
 
-            constraintChanged()
+    private fun handleBackgroundTask(task: BGProcessingTask) {
+        scheduleBackgroundTask() // Reschedule for next time
+
+        task.expirationHandler = { processingJob?.cancel() }
+
+        processingJob =
+            scope.launch {
+                processQueue()
+                task.setTaskCompletedWithSuccess(true)
+            }
+    }
+
+    private fun scheduleBackgroundTask() {
+        val request = BGProcessingTaskRequest(BG_TASK_IDENTIFIER)
+        request.requiresNetworkConnectivity = true
+        request.requiresExternalPower = false
+
+        try {
+            BGTaskScheduler.sharedScheduler.submitTaskRequest(request, null)
+        } catch (e: Exception) {
+            logger.error("Failed to submit BGTask: ${e.message}")
         }
     }
+
+    private suspend fun processQueue() =
+        mutex.withLock {
+            val workers =
+                dao.getWorkers()
+                    .filter {
+                        it.state == LorraineInfo.State.ENQUEUED ||
+                                it.state == LorraineInfo.State.BLOCKED
+                    }
+                    .sortedBy { it.uuid } // Basic FIFO for now, should respect dependencies
+
+            for (workerEntity in workers) {
+                // Check dependencies
+                val dependenciesMet =
+                    workerEntity.workerDependencies.all { depId ->
+                        dao.getWorker(depId)?.state == LorraineInfo.State.SUCCEEDED
+                    }
+                if (!dependenciesMet) continue
+
+                // Check constraints
+                if (!constraints.match(workerEntity.constraints.toDomain())) {
+                    dao.update(workerEntity.copy(state = LorraineInfo.State.BLOCKED))
+                    continue
+                }
+
+                val worker = LorraineWorker(
+                    workerUuid = Uuid.parse(workerEntity.uuid),
+                    application = application,
+                    platform = this
+                )
+                worker.execute()
+            }
+        }
 
     override suspend fun enqueue(
         queueId: String,
         type: ExistingLorrainePolicy,
         lorraineRequest: LorraineRequest
     ) {
-        val queue = queues.getOrElse(queueId) { createQueue(queueId) }
         val uuid = Uuid.random()
-        val worker = createWorkerEntity(
-            uuid = uuid,
-            queueId = queueId,
-            request = lorraineRequest
-        )
+        val worker = createWorkerEntity(uuid = uuid, queueId = queueId, request = lorraineRequest)
 
         dao.insert(worker)
-
-        queue.addOperation(
-            LorraineWorker(
-                workerUuid = uuid,
-                application = application,
-                platform = this
-            )
-        )
-        queues[worker.queueId] = queue
-
-        queue.suspended = !constraints
-            .match(worker.constraints.toDomain())
+        scheduleBackgroundTask()
+        processQueue()
     }
 
-    override suspend fun enqueue(
-        queueId: String,
-        operation: LorraineOperation
-    ) {
-        requireNotNull(operation.operations.firstOrNull()) {
-            "Operations should not be empty"
-        }
-        val queue = queues.getOrElse(queueId) { createQueue(queueId) }
-        var previous: NSOperation? = null
-
-        val workers = operation.operations
-            .map { operation ->
-                val uuid = Uuid.random()
-
-                createWorkerEntity(
-                    uuid = uuid,
-                    queueId = queueId,
-                    request = operation.request
-                )
-            }
-
-        workers.map {
-            LorraineWorker(
-                workerUuid = Uuid.parse(it.uuid),
-                application = application,
-                platform = this
+    override suspend fun enqueue(queueId: String, operation: LorraineOperation) {
+        requireNotNull(operation.operations.firstOrNull()) { "Operations should not be empty" }
+        val workers = operation.operations.map { op ->
+            createWorkerEntity(
+                uuid = Uuid.random(),
+                queueId = queueId,
+                request = op.request
             )
         }
-            .forEach { worker ->
-                previous?.let { previous -> worker.addDependency(previous) }
-                previous = worker
-                queue.addOperation(worker)
-            }
 
         dao.insert(workers)
-
-        queue.suspended = constraints
-            .match(workers.first().constraints.toDomain())
-    }
-
-    internal fun suspend(uniqueId: String, suspended: Boolean) {
-        val queue = queues[uniqueId] ?: return
-
-        queue.suspended = suspended
+        scheduleBackgroundTask()
+        processQueue()
     }
 
     internal fun constraintChanged() {
-        scope.launch {
-            val workers = dao.getWorkers()
-
-            workers.filter {
-                when (it.state) {
-                    LorraineInfo.State.BLOCKED,
-                    LorraineInfo.State.ENQUEUED -> true
-
-                    else -> false
-                }
-            }
-                .forEach { worker ->
-                    if (!worker.workerDependencies.all { id ->
-                            workers.find { it.uuid == id }?.let {
-                                it.state == LorraineInfo.State.SUCCEEDED
-                            } != false
-                        }) {
-                        return@forEach
-                    }
-
-                    if (constraints.match(worker.constraints.toDomain())) {
-                        suspend(worker.queueId, false)
-                    }
-                }
-        }
+        scope.launch { processQueue() }
     }
 
     override suspend fun cancelWorkById(uuid: Uuid) {
         val worker = dao.getWorker(uuid.toHexString()) ?: return
-        val lorraineWorker = queues[worker.queueId]?.operations
-            .orEmpty()
-            .filterIsInstance<LorraineWorker>()
-            .find { it.workerUuid == uuid }
-            ?: return
-
-        lorraineWorker.cancel()
         dao.update(worker.copy(state = LorraineInfo.State.CANCELLED))
     }
 
     override suspend fun cancelUniqueWork(queueId: String) {
-        val queue = queues[queueId] ?: return
-
-        queue.operations
-            .filterIsInstance<LorraineWorker>()
-            .forEach { cancelWorkById(it.workerUuid) }
+        dao.getWorkers().filter { it.queueId == queueId }.forEach {
+            cancelWorkById(Uuid.parse(it.uuid))
+        }
     }
 
-
     override suspend fun cancelAllWorkByTag(tag: String) {
-        queues.flatMap { (_, operation) ->
-            operation.operations
-                .filterIsInstance<LorraineWorker>()
-                .filter {
-                    dao.getWorker(it.workerUuid.toString())
-                        ?.tags
-                        .orEmpty()
-                        .contains(tag)
-                }
+        dao.getWorkers().filter { it.tags.contains(tag) }.forEach {
+            cancelWorkById(Uuid.parse(it.uuid))
         }
-            .forEach { cancelWorkById(it.workerUuid) }
     }
 
     override suspend fun cancelAllWork() {
-        queues.forEach { cancelUniqueWork(it.key) }
+        dao.getWorkers().forEach { cancelWorkById(Uuid.parse(it.uuid)) }
     }
 
     override suspend fun pruneWork() {
-        dao.delete(
-            dao.getWorkers()
-                .filter { it.state.isFinished }
-        )
+        dao.delete(dao.getWorkers().filter { it.state.isFinished })
     }
 
-    override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> = dao.getWorkersAsFlow()
-        .map { list -> list.map { it.toInfo() } }
-
-    private fun createQueue(uniqueId: String): NSOperationQueue {
-        return NSOperationQueue().apply {
-            setName(uniqueId)
-            setMaxConcurrentOperationCount(1)
-            setSuspended(true)
-        }
-    }
+    override fun listenLorrainesInfo(): Flow<List<LorraineInfo>> =
+        dao.getWorkersAsFlow().map { list -> list.map { it.toInfo() } }
 }
