@@ -9,7 +9,7 @@ internal data class ConstraintEntity(
     val requireNetwork: Boolean,
     @ColumnInfo(name = "require_battery_not_low")
     val requireBatteryNotLow: Boolean,
-    @ColumnInfo(name = "require_charging")
+    @ColumnInfo(name = "require_charging", defaultValue = "0")
     val requireCharging: Boolean
 
 )
