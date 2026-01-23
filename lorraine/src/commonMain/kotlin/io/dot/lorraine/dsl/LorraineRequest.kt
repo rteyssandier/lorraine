@@ -9,6 +9,7 @@ import kotlin.time.Duration
 /**
  * Class to make a request to work
  */
+@ConsistentCopyVisibility
 data class LorraineRequest internal constructor(
     val identifier: String,
     val constraints: LorraineConstraints,

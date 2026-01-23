@@ -3,6 +3,7 @@ package io.dot.lorraine.work
 /**
  * Class use to store input or output data work for [WorkLorraine]
  */
+@ConsistentCopyVisibility
 data class LorraineData internal constructor(
     internal val map: Map<String, Any?>
 ) {
